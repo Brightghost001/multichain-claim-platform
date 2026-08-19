@@ -1,0 +1,47 @@
+{
+  "name": "multichain-claim-platform",
+  "version": "1.0.0",
+  "description": "Multi-chain token claim platform with Merkle-based eligibility, wallet adapters, and admin dashboard",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "backend:dev": "ts-node backend/src/server.ts",
+    "backend:build": "tsc -p backend/tsconfig.json",
+    "backend:start": "node backend/dist/server.js"
+  },
+  "dependencies": {
+    "next": "^14.2.0",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0",
+    "wagmi": "^2.10.0",
+    "viem": "^2.12.0",
+    "@tanstack/react-query": "^5.40.0",
+    "@solana/wallet-adapter-base": "^0.9.23",
+    "@solana/wallet-adapter-react": "^0.15.35",
+    "@solana/wallet-adapter-wallets": "^0.19.32",
+    "@solana/web3.js": "^1.91.0",
+    "merkletreejs": "^0.3.11",
+    "ethers": "^6.13.0",
+    "fastify": "^4.27.0",
+    "@fastify/cors": "^9.4.0",
+    "@fastify/rate-limit": "^9.1.0",
+    "ioredis": "^5.4.1",
+    "pg": "^8.12.0",
+    "dotenv": "^16.4.5",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "typescript": "^5.5.0",
+    "tailwindcss": "^3.4.0",
+    "postcss": "^8.4.0",
+    "autoprefixer": "^10.4.0",
+    "ts-node": "^10.9.0",
+    "@types/pg": "^8.11.0"
+  }
+}

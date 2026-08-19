@@ -1,0 +1,167 @@
+/* ═══════════════════════════════════════════════════════════
+   Claim Platform — Global Styles
+   ═══════════════════════════════════════════════════════════ */
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+  color: #fff;
+  min-height: 100vh;
+}
+
+.page {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 40px 20px;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── Hero ── */
+.hero { text-align: center; }
+.hero-title {
+  font-size: 3rem; font-weight: 800;
+  background: linear-gradient(135deg, #667eea, #764ba2, #f093fb);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  margin-bottom: 16px;
+}
+.hero-subtitle { font-size: 1.3rem; opacity: 0.8; margin-bottom: 40px; }
+
+/* ── Wallet Connect ── */
+.wallet-connect-section {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 20px;
+  padding: 32px;
+  backdrop-filter: blur(20px);
+}
+.wallet-connect-section h3 { margin-bottom: 20px; opacity: 0.9; }
+.no-wallet { opacity: 0.6; margin-bottom: 16px; }
+.wallet-buttons { display: flex; flex-direction: column; gap: 12px; }
+.wallet-btn {
+  padding: 16px 24px;
+  border: 2px solid rgba(255,255,255,0.15);
+  border-radius: 12px;
+  background: rgba(255,255,255,0.08);
+  color: #fff;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+.wallet-btn:hover {
+  border-color: #667eea;
+  background: rgba(102,126,234,0.15);
+  transform: translateY(-2px);
+}
+
+/* ── Wallet Info ── */
+.wallet-info { display: flex; gap: 12px; margin-bottom: 24px; flex-wrap: wrap; }
+.connected-badge {
+  background: rgba(76,175,80,0.2);
+  border: 1px solid #4CAF50;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 0.9rem;
+}
+.chain-badge {
+  background: rgba(102,126,234,0.2);
+  border: 1px solid #667eea;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 0.9rem;
+}
+
+/* ── Campaign List ── */
+.campaign-list h2 { margin-bottom: 24px; }
+.campaign-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
+.campaign-card {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 16px;
+  padding: 24px;
+  cursor: pointer;
+  transition: all 0.3s;
+  text-align: center;
+}
+.campaign-card:hover {
+  border-color: #667eea;
+  transform: translateY(-4px);
+  background: rgba(102,126,234,0.1);
+}
+.campaign-icon { font-size: 2rem; margin-bottom: 12px; }
+.campaign-card h3 { margin-bottom: 8px; }
+.campaign-card p { opacity: 0.7; font-size: 0.9rem; margin-bottom: 4px; }
+
+/* ── Claim Section ── */
+.claim-section { width: 100%; max-width: 500px; text-align: center; }
+.back-btn {
+  background: none; border: none; color: #667eea;
+  font-size: 0.9rem; cursor: pointer; margin-bottom: 20px; padding: 0;
+}
+.back-btn:hover { text-decoration: underline; }
+.campaign-desc { opacity: 0.7; margin-bottom: 24px; }
+.loading { opacity: 0.6; padding: 20px; }
+
+.eligibility-result {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 16px;
+  padding: 32px;
+  margin-top: 16px;
+}
+.eligible-badge {
+  font-size: 1.5rem; font-weight: 700; color: #4CAF50;
+  margin-bottom: 16px;
+}
+.allocation {
+  font-size: 1.3rem; font-weight: 600; margin-bottom: 24px;
+}
+.claim-btn {
+  width: 100%;
+  padding: 18px;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #4CAF50, #45a049);
+  color: #fff;
+  font-size: 1.2rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s;
+  text-transform: uppercase;
+}
+.claim-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px rgba(76,175,80,0.3);
+}
+.claim-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.claim-result { margin-top: 16px; font-size: 1.1rem; font-weight: 600; }
+
+.not-eligible-badge {
+  font-size: 1.5rem; font-weight: 700; color: #ef4444;
+  margin-bottom: 12px;
+}
+.not-eligible p { opacity: 0.7; }
+.already-claimed { font-size: 1.3rem; font-weight: 600; color: #667eea; margin-bottom: 12px; }
+
+/* ── Disconnect ── */
+.disconnect-btn {
+  margin-top: 24px;
+  background: none;
+  border: 1px solid rgba(255,255,255,0.2);
+  color: rgba(255,255,255,0.6);
+  padding: 10px 20px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.3s;
+}
+.disconnect-btn:hover {
+  border-color: #ef4444;
+  color: #ef4444;
+}
