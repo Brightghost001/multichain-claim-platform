@@ -1,38 +1,43 @@
 // ═══════════════════════════════════════════════════════════
-// API Routes — Fastify server for claim platform
+// API Routes — Fastify server (Mongoose/MongoDB Atlas)
 // ═══════════════════════════════════════════════════════════
 
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import rateLimit from '@fastify/rate-limit';
 import { EligibilityEngine } from '../eligibility/engine';
-import { query } from '../database/client';
+import { Campaign, Eligibility, Claim } from '../database/models';
+import mongoose from 'mongoose';
 
 const engine = new EligibilityEngine();
 
 export async function buildServer() {
   const app = Fastify({ logger: true });
 
-  await app.register(cors, { origin: process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || true });
+  await app.register(cors, { origin: process.env.FRONTEND_URL || true });
   await app.register(rateLimit, {
     max: Number(process.env.RATE_LIMIT_MAX || 30),
     timeWindow: process.env.RATE_LIMIT_WINDOW_MS || '1 minute',
   });
 
   // ── Health ──
-  app.get('/health', async () => ({ ok: true, timestamp: Date.now() }));
+  app.get('/health', async () => ({
+    ok: true,
+    timestamp: Date.now(),
+    db: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+  }));
 
   // ── List campaigns ──
   app.get('/campaigns', async () => {
-    const res = await query('SELECT * FROM campaigns WHERE status = $1 ORDER BY created_at DESC', ['active']);
-    return { campaigns: res.rows };
+    const campaigns = await Campaign.find({ status: 'active' }).sort({ createdAt: -1 }).lean();
+    return { campaigns };
   });
 
   // ── Get single campaign ──
   app.get('/campaigns/:id', async (req: any) => {
-    const res = await query('SELECT * FROM campaigns WHERE id = $1', [req.params.id]);
-    if (res.rows.length === 0) return { error: 'Campaign not found' };
-    return { campaign: res.rows[0] };
+    const campaign = await Campaign.findOne({ id: req.params.id }).lean();
+    if (!campaign) return { error: 'Campaign not found' };
+    return { campaign };
   });
 
   // ── Check eligibility ──
@@ -48,45 +53,46 @@ export async function buildServer() {
     const { campaignId, walletAddress, chain, txHash, amount } = req.body;
     if (!campaignId || !walletAddress || !txHash) return { error: 'Missing fields' };
 
-    // Insert claim record
-    const res = await query(
-      `INSERT INTO claims (campaign_id, wallet_address, chain, amount, tx_hash, status)
-       VALUES ($1, $2, $3, $4, $5, 'pending')
-       RETURNING id`,
-      [campaignId, walletAddress.toLowerCase(), chain, amount, txHash]
-    );
+    const claim = await Claim.create({
+      campaignId,
+      walletAddress: walletAddress.toLowerCase(),
+      chain,
+      amount,
+      txHash,
+      status: 'pending',
+    });
 
     // Mark eligibility as claimed
-    await query(
-      `UPDATE eligibility SET claimed = true, claimed_at = NOW(), tx_hash = $1
-       WHERE campaign_id = $2 AND wallet_address = $3 AND chain = $4`,
-      [txHash, campaignId, walletAddress.toLowerCase(), chain]
+    await Eligibility.updateOne(
+      { campaignId, walletAddress: walletAddress.toLowerCase(), chain },
+      { claimed: true, claimedAt: new Date(), txHash }
     );
 
     // Update campaign total
-    await query(
-      `UPDATE campaigns SET total_claimed = total_claimed + $1 WHERE id = $2`,
-      [amount, campaignId]
+    await Campaign.updateOne(
+      { id: campaignId },
+      { $inc: { totalClaimed: BigInt(amount) } }
     );
 
-    return { success: true, claimId: res.rows[0].id };
+    return { success: true, claimId: claim._id };
   });
 
   // ── Get claim status ──
   app.get('/claims/:id', async (req: any) => {
-    const res = await query('SELECT * FROM claims WHERE id = $1', [req.params.id]);
-    if (res.rows.length === 0) return { error: 'Claim not found' };
-    return { claim: res.rows[0] };
+    const claim = await Claim.findById(req.params.id).lean();
+    if (!claim) return { error: 'Claim not found' };
+    return { claim };
   });
 
   // ── Admin: create campaign ──
   app.post('/admin/campaigns', async (req: any) => {
     const { id, name, tokenName, tokenSymbol, chain, startTime, endTime, totalAllocation, description } = req.body;
-    await query(
-      `INSERT INTO campaigns (id, name, token_name, token_symbol, chain, start_time, end_time, total_allocation, description, status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'draft')`,
-      [id, name, tokenName, tokenSymbol, chain, startTime, endTime, totalAllocation, description]
-    );
+    await Campaign.create({
+      id, name, tokenName, tokenSymbol, chain,
+      startTime: new Date(startTime),
+      endTime: new Date(endTime),
+      totalAllocation, description, status: 'draft',
+    });
     return { success: true, campaignId: id };
   });
 
@@ -99,46 +105,80 @@ export async function buildServer() {
 
   // ── Admin: generate merkle tree ──
   app.post('/admin/campaigns/:id/merkle', async (req: any) => {
-    const res = await query(
-      'SELECT wallet_address, amount FROM eligibility WHERE campaign_id = $1',
-      [req.params.id]
-    );
-    const entries = res.rows.map((r: any) => ({ address: r.wallet_address, amount: r.amount.toString() }));
+    const records = await Eligibility.find({ campaignId: req.params.id }).lean();
+    const entries = records.map((r: any) => ({ address: r.walletAddress, amount: r.amount }));
     const { root, proofs } = engine.generateMerkleTree(entries);
 
-    await query('UPDATE campaigns SET merkle_root = $1 WHERE id = $2', [root, req.params.id]);
-    await query(
-      `UPDATE eligibility SET merkle_proof = el.merkle_proof
-       FROM (SELECT wallet_address, merkle_proof FROM eligibility WHERE campaign_id = $1) el`,
-      [req.params.id]
-    );
+    await Campaign.updateOne({ id: req.params.id }, { merkleRoot: root });
+
+    // Update proofs on eligibility records
+    for (const [address, proof] of Object.entries(proofs)) {
+      await Eligibility.updateOne(
+        { campaignId: req.params.id, walletAddress: address },
+        { merkleProof: proof }
+      );
+    }
 
     return { success: true, merkleRoot: root, proofCount: Object.keys(proofs).length };
   });
 
   // ── Admin: activate campaign ──
   app.post('/admin/campaigns/:id/activate', async (req: any) => {
-    await query('UPDATE campaigns SET status = $1 WHERE id = $2', ['active', req.params.id]);
+    await Campaign.updateOne({ id: req.params.id }, { status: 'active' });
     return { success: true };
   });
 
   // ── Admin: pause campaign ──
   app.post('/admin/campaigns/:id/pause', async (req: any) => {
-    await query('UPDATE campaigns SET status = $1 WHERE id = $2', ['paused', req.params.id]);
+    await Campaign.updateOne({ id: req.params.id }, { status: 'paused' });
+    return { success: true };
+  });
+
+  // ── Admin: set claim contract address ──
+  app.post('/admin/campaigns/:id/contract', async (req: any) => {
+    const { contractAddress } = req.body;
+    await Campaign.updateOne({ id: req.params.id }, { claimContract: contractAddress });
     return { success: true };
   });
 
   // ── Admin: stats ──
   app.get('/admin/stats', async () => {
-    const campaigns = await query('SELECT COUNT(*) as count FROM campaigns WHERE status = $1', ['active']);
-    const eligible = await query('SELECT COUNT(*) as count FROM eligibility');
-    const claimed  = await query('SELECT COUNT(*) as count FROM eligibility WHERE claimed = true');
-    const tokens  = await query('SELECT COALESCE(SUM(total_claimed), 0) as total FROM campaigns');
+    const [activeCampaigns, totalEligible, totalClaimed] = await Promise.all([
+      Campaign.countDocuments({ status: 'active' }),
+      Eligibility.countDocuments({}),
+      Eligibility.countDocuments({ claimed: true }),
+    ]);
+    const campaigns = await Campaign.find({}).lean();
+    const tokensDistributed = campaigns.reduce((sum, c) => sum + BigInt(c.totalClaimed || '0'), 0n);
     return {
-      activeCampaigns: campaigns.rows[0].count,
-      totalEligible: eligible.rows[0].count,
-      totalClaimed: claimed.rows[0].count,
-      tokensDistributed: tokens.rows[0].total,
+      activeCampaigns,
+      totalEligible,
+      totalClaimed,
+      tokensDistributed: tokensDistributed.toString(),
+    };
+  });
+
+  // ── Admin: analytics (time series) ──
+  app.get('/admin/analytics', async () => {
+    const claims = await Claim.find({ status: 'confirmed' }).lean();
+    
+    // Group by day
+    const byDay: Record<string, number> = {};
+    for (const c of claims) {
+      const day = new Date(c.createdAt).toISOString().split('T')[0];
+      byDay[day] = (byDay[day] || 0) + 1;
+    }
+
+    // Group by chain
+    const byChain: Record<string, number> = {};
+    for (const c of claims) {
+      byChain[c.chain] = (byChain[c.chain] || 0) + 1;
+    }
+
+    return {
+      claimsByDay: byDay,
+      claimsByChain: byChain,
+      totalClaims: claims.length,
     };
   });
 

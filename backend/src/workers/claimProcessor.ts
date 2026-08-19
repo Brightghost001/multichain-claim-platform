@@ -1,12 +1,11 @@
 // ═══════════════════════════════════════════════════════════
-// Claim Processor Worker — polls pending claims and confirms
-// Also monitors blockchain for Claimed events
+// Claim Processor Worker — polls pending claims (Mongoose)
 // ═══════════════════════════════════════════════════════════
 
-import { query } from '../database/client';
+import { Claim, Campaign, Eligibility } from '../database/models';
 import { EvmMonitor } from '../blockchain/evm/monitor';
 
-const POLL_INTERVAL = 15000; // 15 seconds
+const POLL_INTERVAL = 15000;
 
 const RPC_CONFIG: Record<string, string[]> = {
   ethereum:  [process.env.ETH_RPC_1 || '', process.env.ETH_RPC_2 || ''],
@@ -30,21 +29,18 @@ export class ClaimProcessor {
     this.running = true;
     console.log('[Worker] Claim processor started');
 
-    // Load all active campaigns with claim contracts and start monitoring
+    // Load active campaigns with claim contracts and start monitoring
     try {
-      const res = await query(
-        `SELECT id, chain, claim_contract FROM campaigns WHERE status = 'active' AND claim_contract IS NOT NULL`
-      );
-      for (const row of res.rows) {
-        if (row.claim_contract) {
-          this.monitor.watchClaimContract(row.chain, row.claim_contract, row.id);
+      const campaigns = await Campaign.find({ status: 'active', claimContract: { $ne: null } }).lean();
+      for (const c of campaigns) {
+        if (c.claimContract) {
+          this.monitor.watchClaimContract(c.chain, c.claimContract, c.id);
         }
       }
     } catch (e) {
       console.error('[Worker] Failed to load campaigns:', (e as Error).message);
     }
 
-    // Start polling loop
     this.poll();
   }
 
@@ -56,28 +52,19 @@ export class ClaimProcessor {
   private async poll() {
     while (this.running) {
       try {
-        // Find pending claims older than 30 seconds
-        const pending = await query(
-          `SELECT * FROM claims WHERE status = 'pending' AND created_at < NOW() - INTERVAL '30 seconds' LIMIT 50`
-        );
+        const cutoff = new Date(Date.now() - 30_000);
+        const pending = await Claim.find({ status: 'pending', createdAt: { $lt: cutoff } }).limit(50).lean();
 
-        for (const claim of pending.rows) {
-          // Check if the transaction is confirmed on-chain
-          // In production: verify tx receipt via RPC provider
-          // For now: mark as confirmed after a timeout as a fallback
-          const age = Date.now() - new Date(claim.created_at).getTime();
-          if (age > 120000) { // 2 min timeout
-            await query(
-              `UPDATE claims SET status = 'confirmed', confirmed_at = NOW() WHERE id = $1`,
-              [claim.id]
-            );
-            console.log(`[Worker] Claim ${claim.id} auto-confirmed (timeout)`);
+        for (const claim of pending) {
+          const age = Date.now() - new Date(claim.createdAt).getTime();
+          if (age > 120_000) {
+            await Claim.updateOne({ _id: claim._id }, { status: 'confirmed', confirmedAt: new Date() });
+            console.log(`[Worker] Claim ${claim._id} auto-confirmed (timeout)`);
           }
         }
       } catch (e) {
         console.error('[Worker] Poll error:', (e as Error).message);
       }
-
       await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL));
     }
   }

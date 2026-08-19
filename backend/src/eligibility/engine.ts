@@ -1,11 +1,10 @@
 // ═══════════════════════════════════════════════════════════
-// Eligibility Engine — checks if a wallet can claim
-// Supports: Merkle proof, whitelist, balance, NFT holder
+// Eligibility Engine — Merkle proof verification (Mongoose)
 // ═══════════════════════════════════════════════════════════
 
-import { query } from '../database/client';
 import { MerkleTree } from 'merkletreejs';
 import { ethers } from 'ethers';
+import { Campaign, Eligibility } from '../database/models';
 
 export interface EligibilityCheck {
   campaignId: string;
@@ -22,68 +21,58 @@ export interface EligibilityResult {
 }
 
 export class EligibilityEngine {
-  // ── Check eligibility for a wallet in a campaign ──
   async check(req: EligibilityCheck): Promise<EligibilityResult> {
     const { campaignId, walletAddress, chain } = req;
 
     // 1. Fetch campaign
-    const campaignRes = await query(
-      'SELECT * FROM campaigns WHERE id = $1 AND status = $2',
-      [campaignId, 'active']
-    );
-    if (campaignRes.rows.length === 0) {
+    const campaign = await Campaign.findOne({ id: campaignId, status: 'active' });
+    if (!campaign) {
       return { eligible: false, amount: '0', merkleProof: [], hasClaimed: false, reason: 'Campaign not active' };
     }
-    const campaign = campaignRes.rows[0];
 
-    // 2. Check campaign time window
+    // 2. Check time window
     const now = Date.now();
-    if (now < new Date(campaign.start_time).getTime()) {
+    if (now < campaign.startTime.getTime()) {
       return { eligible: false, amount: '0', merkleProof: [], hasClaimed: false, reason: 'Campaign not started yet' };
     }
-    if (now > new Date(campaign.end_time).getTime()) {
+    if (now > campaign.endTime.getTime()) {
       return { eligible: false, amount: '0', merkleProof: [], hasClaimed: false, reason: 'Campaign has ended' };
     }
 
-    // 3. Check chain match
+    // 3. Chain match
     if (campaign.chain !== chain) {
       return { eligible: false, amount: '0', merkleProof: [], hasClaimed: false, reason: `This claim is on ${campaign.chain}` };
     }
 
     // 4. Look up eligibility record
-    const eligRes = await query(
-      'SELECT * FROM eligibility WHERE campaign_id = $1 AND wallet_address = $2 AND chain = $3',
-      [campaignId, walletAddress.toLowerCase(), chain]
-    );
+    const record = await Eligibility.findOne({
+      campaignId,
+      walletAddress: walletAddress.toLowerCase(),
+      chain,
+    });
 
-    if (eligRes.rows.length === 0) {
+    if (!record) {
       return { eligible: false, amount: '0', merkleProof: [], hasClaimed: false, reason: 'Wallet not in eligibility list' };
     }
-
-    const record = eligRes.rows[0];
 
     // 5. Already claimed?
     if (record.claimed) {
       return {
         eligible: false,
-        amount: record.amount.toString(),
-        merkleProof: record.merkle_proof || [],
+        amount: record.amount,
+        merkleProof: record.merkleProof || [],
         hasClaimed: true,
         reason: 'Already claimed',
       };
     }
 
     // 6. Verify Merkle proof if present
-    if (campaign.merkle_root && record.merkle_proof) {
+    if (campaign.merkleRoot && record.merkleProof?.length > 0) {
       const leaf = ethers.keccak256(
         ethers.solidityPacked(['address', 'uint256'], [walletAddress, record.amount])
       );
       const tree = new MerkleTree([], () => '');
-      const verified = tree.verify(
-        record.merkle_proof,
-        leaf,
-        campaign.merkle_root
-      );
+      const verified = tree.verify(record.merkleProof, leaf, campaign.merkleRoot);
       if (!verified) {
         return { eligible: false, amount: '0', merkleProof: [], hasClaimed: false, reason: 'Merkle proof verification failed' };
       }
@@ -91,13 +80,12 @@ export class EligibilityEngine {
 
     return {
       eligible: true,
-      amount: record.amount.toString(),
-      merkleProof: record.merkle_proof || [],
+      amount: record.amount,
+      merkleProof: record.merkleProof || [],
       hasClaimed: false,
     };
   }
 
-  // ── Generate Merkle tree from eligibility list ──
   generateMerkleTree(
     entries: { address: string; amount: string }[]
   ): { root: string; proofs: Record<string, string[]> } {
@@ -113,7 +101,6 @@ export class EligibilityEngine {
     return { root, proofs };
   }
 
-  // ── Bulk import eligibility list ──
   async importEligibility(
     campaignId: string,
     entries: { address: string; chain: string; amount: string; merkleProof?: string[] }[]
@@ -121,11 +108,10 @@ export class EligibilityEngine {
     let imported = 0;
     for (const entry of entries) {
       try {
-        await query(
-          `INSERT INTO eligibility (campaign_id, wallet_address, chain, amount, merkle_proof)
-           VALUES ($1, $2, $3, $4, $5)
-           ON CONFLICT (campaign_id, wallet_address, chain) DO NOTHING`,
-          [campaignId, entry.address.toLowerCase(), entry.chain, entry.amount, JSON.stringify(entry.merkleProof || [])]
+        await Eligibility.updateOne(
+          { campaignId, walletAddress: entry.address.toLowerCase(), chain: entry.chain },
+          { $setOnInsert: { amount: entry.amount, merkleProof: entry.merkleProof || [] } },
+          { upsert: true }
         );
         imported++;
       } catch (e) {
@@ -134,10 +120,8 @@ export class EligibilityEngine {
     }
 
     // Update campaign eligible count
-    await query(
-      'UPDATE campaigns SET total_eligible = (SELECT COUNT(*) FROM eligibility WHERE campaign_id = $1) WHERE id = $1',
-      [campaignId]
-    );
+    const count = await Eligibility.countDocuments({ campaignId });
+    await Campaign.updateOne({ id: campaignId }, { totalEligible: count });
 
     return imported;
   }

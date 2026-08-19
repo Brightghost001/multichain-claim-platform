@@ -1,0 +1,12 @@
+[provider]
+cluster = "devnet"
+wallet = "~/.config/solana/id.json"
+
+[programs.localnet]
+claim_platform = "CLaiM111111111111111111111111111111111111111"
+
+[programs.devnet]
+claim_platform = "CLaiM111111111111111111111111111111111111111"
+
+[scripts]
+test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"

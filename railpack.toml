@@ -1,0 +1,42 @@
+# ═══════════════════════════════════════════════════════════
+# Railpack config — Railway deployment
+# Monorepo: Next.js frontend + Fastify backend in one service
+# ═══════════════════════════════════════════════════════════
+
+[variables]
+NODE_VERSION = "20"
+
+[build]
+# Install all dependencies (root workspace includes both frontend + backend)
+command = "npm install"
+
+[build.static_assets]
+# Next.js static build output
+paths = []
+
+[deploy]
+# Build the frontend, then start both API + frontend
+build = "npm run build"
+
+# Start the backend API server (Fastify on port 4000)
+# Railway routes traffic to whatever port the app listens on
+start = "node backend/dist/server.js"
+
+[deploy.healthcheck]
+path = "/health"
+port = 4000
+timeout = 30
+
+# ═══════════════════════════════════════════════════════════
+# Environment variables to set on Railway:
+#
+#   MONGODB_URI          — MongoDB Atlas connection string
+#   API_PORT             — 4000
+#   FRONTEND_URL         — your Railway frontend domain
+#   DEPLOYER_PRIVATE_KEY — for contract deployment (optional)
+#   ETH_RPC_1            — Ethereum RPC URL (optional, for monitor)
+#   BSC_RPC_1            — BSC RPC URL (optional)
+#   BASE_RPC_1           — Base RPC URL (optional)
+#   ADMIN_WALLET_ADDRESSES — comma-separated admin wallet addresses
+#   RATE_LIMIT_MAX       — 30
+# ═══════════════════════════════════════════════════════════

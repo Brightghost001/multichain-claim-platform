@@ -1,0 +1,24 @@
+[package]
+name = "claim-platform"
+version = "0.1.0"
+description = "Multi-chain claim platform — Solana claim program"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "claim_platform"
+
+[features]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+cpi = ["no-entrypoint"]
+default = []
+
+[dependencies]
+anchor-lang = "0.29.0"
+anchor-spl = "0.29.0"
+solana-program = "1.18"
+
+[tool.rust]
+edition = "2021"
