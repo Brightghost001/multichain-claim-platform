@@ -165,3 +165,58 @@ body {
   border-color: #ef4444;
   color: #ef4444;
 }
+
+/* ═══════════════════════════════════════════════════════════
+   Admin Dashboard Styles
+   ═══════════════════════════════════════════════════════════ */
+
+.admin-page { max-width: 900px; margin: 0 auto; padding: 40px 20px; min-height: 100vh; }
+.admin-title { font-size: 2rem; font-weight: 700; margin-bottom: 24px; background: linear-gradient(135deg, #667eea, #764ba2); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+
+/* Stats */
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 32px; }
+.stat-card { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; padding: 24px; text-align: center; backdrop-filter: blur(10px); }
+.stat-card .stat-value { font-size: 2rem; font-weight: 800; color: #667eea; }
+.stat-card .stat-label { font-size: 0.85rem; opacity: 0.6; margin-top: 4px; }
+
+/* Nav */
+.admin-nav { display: flex; gap: 12px; margin-bottom: 32px; flex-wrap: wrap; }
+.nav-btn { padding: 12px 20px; border: 1px solid rgba(255,255,255,0.15); border-radius: 10px; background: rgba(255,255,255,0.05); color: #fff; font-weight: 600; cursor: pointer; transition: all 0.3s; }
+.nav-btn:hover { border-color: #667eea; background: rgba(102,126,234,0.1); transform: translateY(-2px); }
+
+/* Campaign rows */
+.campaign-list-admin h2 { margin-bottom: 16px; font-size: 1.3rem; }
+.campaign-row { display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 16px 20px; margin-bottom: 12px; flex-wrap: wrap; gap: 12px; }
+.campaign-info { display: flex; align-items: center; gap: 10px; }
+.chain-tag { background: rgba(102,126,234,0.2); border: 1px solid #667eea; padding: 4px 10px; border-radius: 12px; font-size: 0.8rem; }
+.campaign-stats-mini { display: flex; gap: 16px; font-size: 0.85rem; opacity: 0.7; }
+.campaign-actions { display: flex; gap: 8px; }
+.action-btn { padding: 8px 14px; border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; background: rgba(255,255,255,0.05); color: #fff; font-size: 0.85rem; cursor: pointer; transition: all 0.3s; }
+.action-btn:hover { border-color: #667eea; }
+.action-btn.danger:hover { border-color: #ef4444; color: #ef4444; }
+
+/* Forms */
+.admin-form { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; padding: 32px; }
+.form-row { margin-bottom: 20px; }
+.form-row label { display: block; margin-bottom: 8px; font-size: 0.9rem; font-weight: 600; opacity: 0.8; }
+.form-row input, .form-row select, .form-row textarea { width: 100%; padding: 12px 16px; border: 1px solid rgba(255,255,255,0.15); border-radius: 10px; background: rgba(0,0,0,0.2); color: #fff; font-size: 1rem; font-family: inherit; }
+.form-row input:focus, .form-row select:focus, .form-row textarea:focus { outline: none; border-color: #667eea; }
+.form-row textarea { font-family: 'Courier New', monospace; font-size: 0.85rem; resize: vertical; }
+.form-row-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.submit-btn { width: 100%; padding: 16px; border: none; border-radius: 12px; background: linear-gradient(135deg, #667eea, #764ba2); color: #fff; font-size: 1.1rem; font-weight: 700; cursor: pointer; transition: all 0.3s; }
+.submit-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(102,126,234,0.3); }
+.submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.divider { border: none; border-top: 1px solid rgba(255,255,255,0.1); margin: 24px 0; }
+
+/* Campaign detail */
+.campaign-detail-card { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; padding: 24px; margin-bottom: 16px; }
+.campaign-header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+.status-badge { padding: 4px 12px; border-radius: 12px; font-size: 0.8rem; font-weight: 600; text-transform: uppercase; }
+.status-badge.active { background: rgba(76,175,80,0.2); color: #4CAF50; border: 1px solid #4CAF50; }
+.status-badge.paused { background: rgba(245,158,11,0.2); color: #f59e0b; border: 1px solid #f59e0b; }
+.status-badge.draft { background: rgba(102,126,234,0.2); color: #667eea; border: 1px solid #667eea; }
+.status-badge.ended { background: rgba(239,68,68,0.2); color: #ef4444; border: 1px solid #ef4444; }
+.campaign-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.85rem; opacity: 0.8; margin-bottom: 16px; }
+.campaign-meta code { font-size: 0.8rem; opacity: 0.6; }
+.empty { opacity: 0.5; padding: 20px; text-align: center; }
+.msg { padding: 12px 20px; border-radius: 10px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); margin-bottom: 16px; font-weight: 600; }

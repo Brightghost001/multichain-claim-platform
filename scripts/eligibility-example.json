@@ -1,0 +1,5 @@
+[
+  { "address": "0x742D35Cc6634C0532925a3b8D79DCf4c6E3C6C8f", "chain": "ethereum", "amount": "25000" },
+  { "address": "0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984", "chain": "ethereum", "amount": "12500" },
+  { "address": "0x514910771AF9Ca656af840dff83E8264EcF986CA", "chain": "ethereum", "amount": "50000" }
+]
