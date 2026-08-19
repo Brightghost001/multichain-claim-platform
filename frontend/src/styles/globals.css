@@ -220,3 +220,10 @@ body {
 .campaign-meta code { font-size: 0.8rem; opacity: 0.6; }
 .empty { opacity: 0.5; padding: 20px; text-align: center; }
 .msg { padding: 12px 20px; border-radius: 10px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); margin-bottom: 16px; font-weight: 600; }
+
+/* Claim flow extras */
+.success-badge { font-size: 1.5rem; font-weight: 700; color: #4CAF50; margin-bottom: 16px; }
+.tx-info { background: rgba(0,0,0,0.2); border-radius: 8px; padding: 12px; margin: 12px 0; }
+.tx-info code { font-size: 0.85rem; opacity: 0.7; }
+.contract-badge { background: rgba(102,126,234,0.2); border: 1px solid #667eea; padding: 4px 10px; border-radius: 12px; font-size: 0.75rem; display: inline-block; margin-top: 4px; }
+.hint { opacity: 0.5; font-size: 0.85rem; margin-top: 8px; }

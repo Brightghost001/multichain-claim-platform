@@ -1,83 +1,40 @@
 // ═══════════════════════════════════════════════════════════
-// Landing page — Hero → Connect Wallet → Eligibility → Claim
+// Landing page — Hero → Connect Wallet → Select Campaign → Claim
+// Now wired to viem contract calls via useClaim hook
 // ═══════════════════════════════════════════════════════════
 
 import { useState, useEffect } from 'react';
 import { WalletManager } from '../wallet/WalletManager';
-import type { WalletAccount, Campaign, EligibilityResult } from '../wallet/types';
-
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+import { apiClient, type CampaignDto } from '../lib/apiClient';
+import { useClaim } from '../hooks/useClaim';
+import type { WalletAccount } from '../wallet/types';
 
 export default function Home() {
   const [account, setAccount] = useState<WalletAccount | null>(null);
-  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
-  const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
-  const [eligibility, setEligibility] = useState<EligibilityResult | null>(null);
-  const [checking, setChecking] = useState(false);
-  const [claiming, setClaiming] = useState(false);
-  const [claimResult, setClaimResult] = useState<string | null>(null);
+  const [campaigns, setCampaigns] = useState<CampaignDto[]>([]);
+  const [selectedCampaign, setSelectedCampaign] = useState<CampaignDto | null>(null);
 
-  // Subscribe to wallet changes
+  const { state, eligibility, txHash, error, checkEligibility, submitClaim, reset } = useClaim();
+
   useEffect(() => {
     const unsub = WalletManager.subscribe(setAccount);
     return unsub;
   }, []);
 
-  // Fetch campaigns
   useEffect(() => {
-    fetch(`${API}/campaigns`)
-      .then(r => r.json())
-      .then(d => setCampaigns(d.campaigns || []))
-      .catch(console.error);
+    apiClient.getCampaigns().then(setCampaigns).catch(console.error);
   }, []);
 
-  // Check eligibility when account or campaign changes
   useEffect(() => {
-    if (!account || !selectedCampaign) return;
-    setChecking(true);
-    setEligibility(null);
-    fetch(`${API}/eligibility/check`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        campaignId: selectedCampaign.id,
-        walletAddress: account.address,
-        chain: account.chain,
-      }),
-    })
-      .then(r => r.json())
-      .then(setEligibility)
-      .catch(console.error)
-      .finally(() => setChecking(false));
+    if (account && selectedCampaign) {
+      reset();
+      checkEligibility(selectedCampaign);
+    }
   }, [account, selectedCampaign]);
 
   const handleConnect = async (adapterId: string) => {
     try { await WalletManager.connect(adapterId); }
     catch (e: any) { alert(e.message); }
-  };
-
-  const handleClaim = async () => {
-    if (!account || !selectedCampaign || !eligibility?.eligible) return;
-    setClaiming(true);
-    // In production: call claim contract with merkle proof via wagmi/viem
-    // For now: submit to backend
-    fetch(`${API}/claims/submit`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        campaignId: selectedCampaign.id,
-        walletAddress: account.address,
-        chain: account.chain,
-        txHash: 'pending', // replaced after on-chain tx
-        amount: eligibility.amount,
-      }),
-    })
-      .then(r => r.json())
-      .then(d => {
-        setClaimResult(d.success ? '🎉 Claim successful!' : 'Claim failed');
-      })
-      .catch(() => setClaimResult('Claim failed'))
-      .finally(() => setClaiming(false));
   };
 
   const availableAdapters = WalletManager.getAvailableAdapters();
@@ -89,7 +46,6 @@ export default function Home() {
         <div className="hero">
           <h1 className="hero-title">CLAIM YOUR TOKENS</h1>
           <p className="hero-subtitle">Connect your wallet to check your eligibility</p>
-
           <div className="wallet-connect-section">
             <h3>CONNECT WALLET</h3>
             {availableAdapters.length === 0 && (
@@ -106,74 +62,103 @@ export default function Home() {
         </div>
       )}
 
-      {/* ── Connected: Campaign selection ── */}
+      {/* ── Campaign selection ── */}
       {account && !selectedCampaign && (
         <div className="campaign-list">
           <div className="wallet-info">
-            <div className="connected-badge">✅ Connected: {account.address.slice(0, 8)}...{account.address.slice(-4)}</div>
+            <div className="connected-badge">✅ {account.address.slice(0, 8)}...{account.address.slice(-4)}</div>
             <div className="chain-badge">Network: {account.chain}</div>
+            <button className="disconnect-btn" onClick={() => WalletManager.disconnect()}>Disconnect</button>
           </div>
           <h2>Select a Campaign</h2>
           {campaigns.length === 0 && <p>No active campaigns right now.</p>}
           <div className="campaign-grid">
             {campaigns.map(c => (
               <div key={c.id} className="campaign-card" onClick={() => setSelectedCampaign(c)}>
-                <div className="campaign-icon">{c.logoUrl ? <img src={c.logoUrl} alt="" /> : '🎯'}</div>
-                <h3>{c.tokenName} ({c.tokenSymbol})</h3>
+                <div className="campaign-icon">🎯</div>
+                <h3>{c.token_name} ({c.token_symbol})</h3>
                 <p>Chain: {c.chain}</p>
-                <p>Allocation: {c.totalAllocation}</p>
+                <p>Allocation: {c.total_allocation}</p>
+                {c.claim_contract && <p className="contract-badge">📜 On-chain</p>}
               </div>
             ))}
           </div>
         </div>
       )}
 
-      {/* ── Eligibility + Claim ── */}
+      {/* ── Claim flow ── */}
       {account && selectedCampaign && (
         <div className="claim-section">
-          <button className="back-btn" onClick={() => setSelectedCampaign(null)}>← Back</button>
+          <button className="back-btn" onClick={() => { setSelectedCampaign(null); reset(); }}>← Back</button>
           <div className="wallet-info">
             <div className="connected-badge">✅ {account.address.slice(0, 8)}...{account.address.slice(-4)}</div>
             <div className="chain-badge">Network: {account.chain}</div>
           </div>
-
-          <h2>{selectedCampaign.tokenName} ({selectedCampaign.tokenSymbol})</h2>
+          <h2>{selectedCampaign.token_name} ({selectedCampaign.token_symbol})</h2>
           {selectedCampaign.description && <p className="campaign-desc">{selectedCampaign.description}</p>}
 
-          {checking && <div className="loading">Checking eligibility...</div>}
+          {/* Checking */}
+          {state === 'checking' && <div className="loading">Checking eligibility...</div>}
 
-          {eligibility && !checking && (
+          {/* Eligible → Claim */}
+          {state === 'eligible' && eligibility && (
             <div className="eligibility-result">
-              {eligibility.hasClaimed ? (
+              <div className="eligible-badge">✓ Eligible</div>
+              <div className="allocation">Your allocation: {eligibility.amount} {selectedCampaign.token_symbol}</div>
+              <button className="claim-btn" onClick={() => submitClaim(selectedCampaign)}>
+                {selectedCampaign.claim_contract ? 'CLAIM ON-CHAIN' : 'CLAIM TOKENS'}
+              </button>
+            </div>
+          )}
+
+          {/* Claiming */}
+          {state === 'claiming' && (
+            <div className="eligibility-result">
+              <div className="loading">Submitting claim transaction...</div>
+              <p className="hint">Confirm the transaction in your wallet</p>
+            </div>
+          )}
+
+          {/* Success */}
+          {state === 'success' && (
+            <div className="eligibility-result">
+              <div className="success-badge">🎉 Claim Successful!</div>
+              {txHash && txHash !== 'pending' && (
+                <div className="tx-info">
+                  <p>Transaction: <code>{txHash.slice(0, 20)}...{txHash.slice(-8)}</code></p>
+                </div>
+              )}
+              <p className="allocation">Claimed: {eligibility?.amount} {selectedCampaign.token_symbol}</p>
+              <button className="back-btn" onClick={() => { setSelectedCampaign(null); reset(); }}>Back to campaigns</button>
+            </div>
+          )}
+
+          {/* Ineligible */}
+          {state === 'ineligible' && (
+            <div className="eligibility-result">
+              {eligibility?.hasClaimed ? (
                 <>
                   <div className="already-claimed">✅ Already Claimed</div>
-                  <p>Amount: {eligibility.amount}</p>
-                </>
-              ) : eligibility.eligible ? (
-                <>
-                  <div className="eligible-badge">✓ Eligible</div>
-                  <div className="allocation">Your allocation: {eligibility.amount} {selectedCampaign.tokenSymbol}</div>
-                  <button className="claim-btn" disabled={claiming} onClick={handleClaim}>
-                    {claiming ? 'Claiming...' : 'CLAIM TOKENS'}
-                  </button>
-                  {claimResult && <div className="claim-result">{claimResult}</div>}
+                  <p>Amount: {eligibility.amount} {selectedCampaign.token_symbol}</p>
                 </>
               ) : (
                 <div className="not-eligible">
                   <div className="not-eligible-badge">✗ Not Eligible</div>
-                  <p>{eligibility.reason || 'Wallet not in eligibility list'}</p>
+                  <p>{error || 'Wallet not in eligibility list'}</p>
                 </div>
               )}
             </div>
           )}
-        </div>
-      )}
 
-      {/* ── Disconnect ── */}
-      {account && (
-        <button className="disconnect-btn" onClick={() => WalletManager.disconnect()}>
-          Disconnect Wallet
-        </button>
+          {/* Failed */}
+          {state === 'failed' && (
+            <div className="eligibility-result">
+              <div className="not-eligible-badge">❌ Failed</div>
+              <p>{error || 'Something went wrong'}</p>
+              <button className="claim-btn" onClick={() => checkEligibility(selectedCampaign)}>Try Again</button>
+            </div>
+          )}
+        </div>
       )}
     </div>
   );
